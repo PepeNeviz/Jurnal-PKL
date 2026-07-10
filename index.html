@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jurnal PKL v2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 font-sans antialiased">
+
+    <div class="max-w-3xl mx-auto">
+        <header class="mb-8 text-center md:text-left">
+            <h1 class="text-3xl font-bold text-blue-400">📝 Jurnal PKL</h1>
+            <p class="text-gray-400 text-sm mt-1">Tracker 4 Bulan - Anti Lupa Laporan!</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 space-y-6">
+                
+                <div class="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <button onclick="changeMonth(-1)" class="text-gray-400 hover:text-white px-2 py-1 bg-gray-700 rounded">&lt;</button>
+                        <h3 id="calendarMonthYear" class="text-sm font-bold text-gray-200">Bulan Tahun</h3>
+                        <button onclick="changeMonth(1)" class="text-gray-400 hover:text-white px-2 py-1 bg-gray-700 rounded">&gt;</button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+                        <div>M</div><div>S</div><div>S</div><div>R</div><div>K</div><div>J</div><div>S</div>
+                    </div>
+                    <div id="calendarGrid" class="grid grid-cols-7 gap-1 text-center text-sm">
+                        </div>
+                    <div class="mt-4 flex justify-between items-center">
+                        <span class="text-xs text-gray-400">Pilih tanggal untuk filter</span>
+                        <button onclick="resetFilter()" class="text-xs text-blue-400 hover:underline">Tampilkan Semua</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-xl shadow-lg border border-gray-700">
+                    <h2 class="text-lg font-semibold mb-3 border-b border-gray-700 pb-2">Tambah Jurnal</h2>
+                    <form id="jurnalForm" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Tanggal</label>
+                            <input type="date" id="tanggal" required
+                                class="w-full bg-gray-700 text-white text-sm rounded-lg p-2 border border-gray-600 focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Bagian / Divisi</label>
+                            <input type="text" id="divisi" placeholder="Contoh: Front-end" required
+                                class="w-full bg-gray-700 text-white text-sm rounded-lg p-2 border border-gray-600 focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Deskripsi</label>
+                            <textarea id="deskripsi" rows="2" required
+                                class="w-full bg-gray-700 text-white text-sm rounded-lg p-2 border border-gray-600 focus:border-blue-500 outline-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Status</label>
+                            <select id="status" class="w-full bg-gray-700 text-white text-sm rounded-lg p-2 border border-gray-600 focus:border-blue-500 outline-none">
+                                <option value="Belum Beres">⏳ Belum Beres</option>
+                                <option value="Udah Beres">✅ Udah Beres</option>
+                            </select>
+                        </div>
+                        <button type="submit" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 rounded-lg transition-colors shadow-md">
+                            Simpan
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="mb-4">
+                    <input type="text" id="searchInput" placeholder="🔍 Cari jurnal (berdasarkan divisi atau deskripsi)..." 
+                        class="w-full bg-gray-800 text-white rounded-xl p-3 border border-gray-700 focus:border-blue-500 outline-none shadow-sm transition-all">
+                </div>
+
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 id="listTitle" class="text-xl font-semibold">Semua Riwayat Jurnal</h2>
+                    <span id="jurnalCount" class="text-sm text-gray-400">Total: 0</span>
+                </div>
+
+                <div id="jurnalList" class="space-y-3 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+
+    <script>
+        // Data Utama
+        let jurnals = JSON.parse(localStorage.getItem('jurnalData')) || [];
+        
+        // State untuk Filter & Kalender
+        let filterDate = null;
+        let searchQuery = '';
+        
+        let currentDate = new Date();
+        let currentMonth = currentDate.getMonth();
+        let currentYear = currentDate.getFullYear();
+
+        const form = document.getElementById('jurnalForm');
+        const searchInput = document.getElementById('searchInput');
+        const listTitle = document.getElementById('listTitle');
+
+        // --- FUNGSI KALENDER ---
+        function renderCalendar() {
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            document.getElementById('calendarMonthYear').innerText = `${monthNames[currentMonth]} ${currentYear}`;
+            
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+            // Kumpulan tanggal yang ada di jurnal (untuk warna)
+            const filledDates = jurnals.map(j => j.tanggal);
+
+            // Kotak kosong awal bulan
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                grid.appendChild(emptyCell);
+            }
+
+            // Kotak tanggal
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateCell = document.createElement('div');
+                // Format YYYY-MM-DD untuk pencocokan data
+                const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                
+                dateCell.innerText = i;
+                dateCell.className = "py-1.5 rounded-md cursor-pointer transition-colors text-sm font-medium ";
+
+                // Cek apakah hari ini ada jurnal
+                const hasJurnal = filledDates.includes(dateString);
+                
+                if (filterDate === dateString) {
+                    dateCell.className += "bg-blue-500 text-white ring-2 ring-blue-300"; // Sedang dipilih
+                } else if (hasJurnal) {
+                    dateCell.className += "bg-blue-900 text-blue-200 hover:bg-blue-700"; // Ada isi
+                } else {
+                    dateCell.className += "text-gray-400 hover:bg-gray-700"; // Kosong
+                }
+
+                // Klik tanggal untuk filter
+                dateCell.onclick = () => {
+                    filterDate = dateString;
+                    renderCalendar(); // Rerender buat update warna pilihan
+                    renderJurnals();
+                };
+
+                grid.appendChild(dateCell);
+            }
+        }
+
+        function changeMonth(direction) {
+            currentMonth += direction;
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderCalendar();
+        }
+
+        function resetFilter() {
+            filterDate = null;
+            renderCalendar();
+            renderJurnals();
+        }
+
+        // --- FUNGSI PENCARIAN & RENDER JURNAL ---
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.toLowerCase();
+            renderJurnals();
+        });
+
+        function renderJurnals() {
+            const jurnalList = document.getElementById('jurnalList');
+            jurnalList.innerHTML = '';
+
+            // Proses Filter Data
+            let filteredJurnals = jurnals;
+
+            // 1. Filter berdasarkan tanggal dari kalender
+            if (filterDate) {
+                filteredJurnals = filteredJurnals.filter(j => j.tanggal === filterDate);
+                listTitle.innerText = `Jurnal Tanggal: ${filterDate}`;
+            } else {
+                listTitle.innerText = `Semua Riwayat Jurnal`;
+            }
+
+            // 2. Filter berdasarkan kata kunci pencarian
+            if (searchQuery) {
+                filteredJurnals = filteredJurnals.filter(j => 
+                    j.divisi.toLowerCase().includes(searchQuery) || 
+                    j.deskripsi.toLowerCase().includes(searchQuery)
+                );
+            }
+
+            document.getElementById('jurnalCount').innerText = `Total: ${filteredJurnals.length}`;
+
+            if(filteredJurnals.length === 0) {
+                jurnalList.innerHTML = `<p class="text-center text-gray-500 italic mt-6">Tidak ada jurnal ditemukan.</p>`;
+                return;
+            }
+
+            // Urutkan data terbaru ke atas
+            filteredJurnals.sort((a, b) => b.id - a.id).forEach(jurnal => {
+                const statusColor = jurnal.status === 'Udah Beres' ? 'bg-green-900/50 text-green-300 border-green-700' : 'bg-yellow-900/50 text-yellow-300 border-yellow-700';
+
+                const card = document.createElement('div');
+                card.className = "bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-sm relative";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="text-xs font-semibold text-gray-300 bg-gray-700 px-2 py-1 rounded">
+                                📅 ${jurnal.tanggal}
+                            </span>
+                            <span class="text-xs font-semibold text-blue-300 bg-blue-900/30 px-2 py-1 rounded ml-2 border border-blue-800/50">
+                                🏢 ${jurnal.divisi}
+                            </span>
+                        </div>
+                        <button onclick="hapusJurnal(${jurnal.id})" class="text-red-400 hover:text-red-300 text-xs p-1 bg-red-900/20 rounded">
+                            Hapus
+                        </button>
+                    </div>
+                    <p class="text-gray-300 text-sm mb-3 whitespace-pre-wrap leading-relaxed">${jurnal.deskripsi}</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-medium border px-2 py-0.5 rounded-full ${statusColor}">
+                            ${jurnal.status}
+                        </span>
+                        <button onclick="toggleStatus(${jurnal.id})" class="text-[11px] text-gray-400 hover:text-white underline">
+                            Ubah Status
+                        </button>
+                    </div>
+                `;
+                jurnalList.appendChild(card);
+            });
+        }
+
+        // --- FUNGSI CRUD STANDAR ---
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newJurnal = {
+                id: Date.now(),
+                tanggal: document.getElementById('tanggal').value,
+                divisi: document.getElementById('divisi').value,
+                deskripsi: document.getElementById('deskripsi').value,
+                status: document.getElementById('status').value
+            };
+            jurnals.push(newJurnal);
+            localStorage.setItem('jurnalData', JSON.stringify(jurnals));
+            
+            form.reset();
+            // Otomatis update kalender ke bulan inputan jika berubah
+            const [y, m] = newJurnal.tanggal.split('-');
+            currentYear = parseInt(y);
+            currentMonth = parseInt(m) - 1;
+            
+            renderCalendar();
+            renderJurnals();
+        });
+
+        function hapusJurnal(id) {
+            if(confirm('Yakin mau hapus jurnal ini?')) {
+                jurnals = jurnals.filter(jurnal => jurnal.id !== id);
+                localStorage.setItem('jurnalData', JSON.stringify(jurnals));
+                renderCalendar();
+                renderJurnals();
+            }
+        }
+
+        function toggleStatus(id) {
+            const index = jurnals.findIndex(jurnal => jurnal.id === id);
+            if (index !== -1) {
+                jurnals[index].status = jurnals[index].status === 'Udah Beres' ? 'Belum Beres' : 'Udah Beres';
+                localStorage.setItem('jurnalData', JSON.stringify(jurnals));
+                renderJurnals();
+            }
+        }
+
+        // Inisialisasi awal
+        document.getElementById('tanggal').valueAsDate = new Date(); // Set tanggal form hari ini
+        renderCalendar();
+        renderJurnals();
+    </script>
+</body>
+</html>
