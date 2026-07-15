@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jurnal PKL Pro</title>
+    <title>Jurnal PKL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -58,7 +58,7 @@
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-xl shadow-lg border border-gray-700">
-                    <h2 class="text-lg font-bold mb-4 border-b border-gray-700 pb-2 text-blue-300">+ Tambah Pekerjaan</h2>
+                    <h2 id="formTitle" class="text-lg font-bold mb-4 border-b border-gray-700 pb-2 text-blue-300">+ Tambah Pekerjaan</h2>
                     <form id="jurnalForm" class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -87,10 +87,14 @@
                             </select>
                         </div>
                         
-                        <button type="submit" 
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold py-3 rounded-lg transition-colors shadow-md mt-2">
-                            Simpan Jurnal
-                        </button>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" id="cancelEditBtn" onclick="batalEdit()" class="hidden w-1/3 bg-gray-600 hover:bg-gray-500 text-white text-sm font-semibold py-3 rounded-lg transition-colors shadow-md">
+                                Batal
+                            </button>
+                            <button type="submit" id="submitBtnText" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold py-3 rounded-lg transition-colors shadow-md">
+                                Simpan Jurnal
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -124,6 +128,7 @@
         let jurnals = JSON.parse(localStorage.getItem('jurnalData')) || [];
         let filterDate = null;
         let searchQuery = '';
+        let editId = null; // State untuk menyimpan ID yang sedang diedit
         
         let currentDate = new Date();
         let currentMonth = currentDate.getMonth();
@@ -143,21 +148,19 @@
         });
 
         function switchPage(page) {
-            // Sembunyikan semua
             pageInput.classList.add('hidden');
             pageRiwayat.classList.add('hidden');
-            mobileMenu.classList.add('hidden'); // Tutup menu pas diklik
+            mobileMenu.classList.add('hidden'); 
 
-            // Tampilkan yang dipilih
             if(page === 'input') {
                 pageInput.classList.remove('hidden');
                 pageInput.classList.add('block');
             } else {
                 pageRiwayat.classList.remove('hidden');
                 pageRiwayat.classList.add('block');
-                renderJurnals(); // Pastikan data terbaru dirender
+                renderJurnals();
             }
-            window.scrollTo(0, 0); // Scroll ke atas pas ganti halaman
+            window.scrollTo(0, 0); 
         }
 
         // --- SISTEM KALENDER ---
@@ -168,9 +171,8 @@
             const grid = document.getElementById('calendarGrid');
             grid.innerHTML = '';
 
-            // Hitung mulai hari apa (0 = Minggu, 1 = Senin, dst) - Kita sesuaikan mulai dari Senin
             let firstDay = new Date(currentYear, currentMonth, 1).getDay() - 1;
-            if (firstDay === -1) firstDay = 6; // Kalau hari Minggu, taruh di paling belakang
+            if (firstDay === -1) firstDay = 6; 
             
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             const filledDates = jurnals.map(j => j.tanggal);
@@ -196,12 +198,11 @@
                     dateCell.className += "text-gray-400 hover:bg-gray-700 hover:text-white";
                 }
 
-                // Aksi saat tanggal diklik: Filter & Otomatis pindah halaman
                 dateCell.onclick = () => {
                     filterDate = dateString;
                     renderCalendar(); 
                     renderJurnals();
-                    switchPage('riwayat'); // Ajaibnya di sini, otomatis ganti halaman
+                    switchPage('riwayat');
                 };
 
                 grid.appendChild(dateCell);
@@ -219,7 +220,7 @@
             filterDate = null;
             renderCalendar();
             renderJurnals();
-            switchPage('riwayat'); // Biar lgsg liat semua data
+            switchPage('riwayat');
         }
 
         // --- SISTEM RENDER & PENCARIAN ---
@@ -234,7 +235,6 @@
 
             let filteredJurnals = jurnals;
 
-            // Filter Tanggal
             if (filterDate) {
                 filteredJurnals = filteredJurnals.filter(j => j.tanggal === filterDate);
                 document.getElementById('listTitle').innerText = `Jurnal Tanggal: ${filterDate}`;
@@ -242,7 +242,6 @@
                 document.getElementById('listTitle').innerText = `Semua Riwayat Jurnal`;
             }
 
-            // Filter Pencarian
             if (searchQuery) {
                 filteredJurnals = filteredJurnals.filter(j => 
                     j.divisi.toLowerCase().includes(searchQuery) || 
@@ -260,7 +259,6 @@
                 return;
             }
 
-            // Render Card
             filteredJurnals.sort((a, b) => b.id - a.id).forEach(jurnal => {
                 const isBeres = jurnal.status === 'Udah Beres';
                 const statusColor = isBeres ? 'bg-green-900/30 text-green-400 border-green-800' : 'bg-yellow-900/30 text-yellow-400 border-yellow-800';
@@ -277,9 +275,14 @@
                                 🏢 ${jurnal.divisi}
                             </span>
                         </div>
-                        <button onclick="hapusJurnal(${jurnal.id})" class="text-red-400 hover:text-white text-xs px-2 py-1 bg-red-900/20 hover:bg-red-600 rounded transition-colors">
-                            Hapus
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="siapkanEdit(${jurnal.id})" class="text-blue-400 hover:text-white text-xs px-2 py-1 bg-blue-900/20 hover:bg-blue-600 rounded transition-colors">
+                                Edit
+                            </button>
+                            <button onclick="hapusJurnal(${jurnal.id})" class="text-red-400 hover:text-white text-xs px-2 py-1 bg-red-900/20 hover:bg-red-600 rounded transition-colors">
+                                Hapus
+                            </button>
+                        </div>
                     </div>
                     <p class="text-gray-200 text-sm mb-4 whitespace-pre-wrap leading-relaxed">${jurnal.deskripsi}</p>
                     <div class="flex items-center justify-between border-t border-gray-600/50 pt-3">
@@ -295,29 +298,81 @@
             });
         }
 
-        // --- SISTEM CRUD (SIMPAN, HAPUS, UPDATE) ---
+        // --- SISTEM CRUD (SIMPAN, UPDATE, HAPUS) ---
+        
+        // Fungsi untuk memasukkan data ke form dan merubah mode ke Edit
+        function siapkanEdit(id) {
+            const jurnal = jurnals.find(j => j.id === id);
+            if(!jurnal) return;
+
+            editId = id; // Set ID yang sedang diedit
+            
+            // Isi form dengan data lama
+            document.getElementById('tanggal').value = jurnal.tanggal;
+            document.getElementById('divisi').value = jurnal.divisi;
+            document.getElementById('deskripsi').value = jurnal.deskripsi;
+            document.getElementById('status').value = jurnal.status;
+
+            // Ubah UI Form
+            document.getElementById('formTitle').innerText = "✏️ Edit Pekerjaan";
+            document.getElementById('submitBtnText').innerText = "Update Jurnal";
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+            switchPage('input'); // Pindah ke halaman input
+        }
+
+        // Fungsi untuk membatalkan proses edit
+        function batalEdit() {
+            editId = null;
+            form.reset();
+            document.getElementById('tanggal').valueAsDate = new Date();
+            
+            // Kembalikan UI Form seperti semula
+            document.getElementById('formTitle').innerText = "+ Tambah Pekerjaan";
+            document.getElementById('submitBtnText').innerText = "Simpan Jurnal";
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+        }
+
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            const newJurnal = {
-                id: Date.now(),
-                tanggal: document.getElementById('tanggal').value,
-                divisi: document.getElementById('divisi').value,
-                deskripsi: document.getElementById('deskripsi').value,
-                status: document.getElementById('status').value
-            };
             
-            jurnals.push(newJurnal);
+            const tanggal = document.getElementById('tanggal').value;
+            const divisi = document.getElementById('divisi').value;
+            const deskripsi = document.getElementById('deskripsi').value;
+            const status = document.getElementById('status').value;
+
+            if (editId) {
+                // PROSES UPDATE DATA
+                const index = jurnals.findIndex(j => j.id === editId);
+                if (index !== -1) {
+                    jurnals[index].tanggal = tanggal;
+                    jurnals[index].divisi = divisi;
+                    jurnals[index].deskripsi = deskripsi;
+                    jurnals[index].status = status;
+                }
+                batalEdit(); // Reset form dan state edit kembali ke normal
+            } else {
+                // PROSES TAMBAH DATA BARU
+                const newJurnal = {
+                    id: Date.now(),
+                    tanggal: tanggal,
+                    divisi: divisi,
+                    deskripsi: deskripsi,
+                    status: status
+                };
+                jurnals.push(newJurnal);
+                form.reset();
+                document.getElementById('tanggal').valueAsDate = new Date();
+            }
+            
             localStorage.setItem('jurnalData', JSON.stringify(jurnals));
-            
-            form.reset();
-            document.getElementById('tanggal').valueAsDate = new Date(); // Reset ke hari ini
 
             // Update kalender dan otomatis pindah ke riwayat untuk lihat hasilnya
-            const [y, m] = newJurnal.tanggal.split('-');
+            const [y, m] = tanggal.split('-');
             currentYear = parseInt(y);
             currentMonth = parseInt(m) - 1;
             
-            filterDate = null; // Reset filter biar jurnal baru keliatan
+            filterDate = null; 
             renderCalendar();
             switchPage('riwayat');
         });
